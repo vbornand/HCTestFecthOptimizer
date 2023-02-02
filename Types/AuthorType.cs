@@ -28,11 +28,6 @@ public sealed class UseOnlyParentIdAttribute : ObjectFieldDescriptorAttribute
 {
     protected override void OnConfigure(IDescriptorContext context, IObjectFieldDescriptor descriptor, MemberInfo member)
     {
-        descriptor.Extend().Definition.CustomSettings.Add(new UseOnlyParentId());
+        descriptor.Extend().Definition.CustomSettings.Add(FetchStrategy.OnlyId);
     }
-}
-
-public class UseOnlyParentId
-{
-
 }
