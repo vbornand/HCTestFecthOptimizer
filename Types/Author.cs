@@ -1,3 +1,3 @@
 namespace TestFecthOptimizer.Types;
 
-public record Author(int Id, string? Name);
+public record Author(int Id, string? Name) : IBusinessObject;

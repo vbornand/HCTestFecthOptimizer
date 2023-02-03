@@ -4,6 +4,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddSingleton<IRepository, Repository>()
+    .AddSingleton<ITypesOnlyParentIdService, TypesOnlyParentIdService>()
     .AddGraphQLServer()
     .AddTypes();
 

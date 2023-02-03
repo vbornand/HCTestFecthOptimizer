@@ -1,74 +1,16 @@
-using System.Reflection;
-using HotChocolate.Data.Projections.Context;
-using HotChocolate.Internal;
-using HotChocolate.Resolvers;
-using HotChocolate.Types.Descriptors;
+using TestFecthOptimizer.Infrastructure;
 
 namespace TestFecthOptimizer.Types;
 
-[ExtendObjectType(typeof(Book))]
-public static class BookType
+public class BookType : ObjectType<Book>
 {
-    [BindMember(nameof(Book.AuthorId))]
-    [AuthorOptimizedFetch]
-    public static async Task<Author> GetAuthor([Parent] Book book,
-                                               IAuthorByIdDataLoader authorByIdDataLoader,
-                                               FetchStrategy fetchStrategy,
-                                               CancellationToken cancellationToken)
+    protected override void Configure(IObjectTypeDescriptor<Book> descriptor)
     {
-        if (fetchStrategy == FetchStrategy.OnlyId)
-        {
-            Console.WriteLine("Author not fetched.");
-            return new Author(book.AuthorId, null);
-        }
-        else
-        {
-            Console.WriteLine("Author fetched.");
-            return await authorByIdDataLoader.LoadAsync(book.AuthorId, cancellationToken);
-        }
+        base.Configure(descriptor);
+
+        //Just to check if it works when the GraphQL type does not match with the class name.
+        descriptor.Name("TheBook");
+
+        descriptor.Field(a => a.Id).UseOnlyParentId();
     }
-}
-
-public sealed class AuthorOptimizedFetchAttribute : OptimizedFetchAttribute
-{
-    public AuthorOptimizedFetchAttribute(): base(new string[] { "__typename", "id", "idDouble" })
-    {
-    }
-}
-
-public abstract class OptimizedFetchAttribute : ObjectFieldDescriptorAttribute
-{
-    public string[] FieldsAvailableWithoutFetch { get; }
-
-    public OptimizedFetchAttribute(string[] fieldsAvailableWithoutFetch)
-    {
-        this.FieldsAvailableWithoutFetch = fieldsAvailableWithoutFetch;
-    }
-
-    protected override void OnConfigure(IDescriptorContext context, IObjectFieldDescriptor descriptor, MemberInfo member)
-    {
-        descriptor.Extend().Definition.ParameterExpressionBuilders.Add(
-            new CustomParameterExpressionBuilder<FetchStrategy>(ctx => GetFetchStrategy(ctx))
-        );
-    }
-
-    private FetchStrategy GetFetchStrategy(IResolverContext context)
-    {
-        var fields = context.GetSelectedField().GetFields().Select(f => f.Field.Name);
-
-        if ((FieldsAvailableWithoutFetch == null) || fields.Except(FieldsAvailableWithoutFetch).Any())
-        {
-            return FetchStrategy.All;
-        }
-        else
-        {
-            return FetchStrategy.OnlyId;
-        }
-    }
-}
-
-public enum FetchStrategy
-{
-    OnlyId,
-    All
 }

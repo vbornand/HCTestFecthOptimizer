@@ -1,33 +1,16 @@
-using HotChocolate.Types.Descriptors;
-using System.Reflection;
-using TestFecthOptimizer.Services;
+using TestFecthOptimizer.Infrastructure;
 
 namespace TestFecthOptimizer.Types;
 
-[ExtendObjectType(typeof(Author))]
-public static class AuthorType
+public class AuthorType : ObjectType<Author>
 {
-    [DataLoader]
-    internal static Task<IReadOnlyDictionary<int, Author>> GetAuthorByIdAsync(
-    IReadOnlyList<int> keys,
-    IRepository repository,
-    CancellationToken cancellationToken)
+    protected override void Configure(IObjectTypeDescriptor<Author> descriptor)
     {
-        return Task.FromResult<IReadOnlyDictionary<int, Author>>(repository.Authors
-            .Where(a => keys.Contains(a.Id))
-            .ToDictionary(t => t.Id));
-    }
+        base.Configure(descriptor);
 
-    public static string? NameUpperCase([Parent] Author author) => author.Name?.ToUpperInvariant();
+        //Just to check if it works when the GraphQL type does not match with the class name.
+        descriptor.Name("TheAuthor");
 
-    [UseOnlyParentId]
-    public static int IdDouble([Parent] Author author) => author.Id * 2;
-}
-
-public sealed class UseOnlyParentIdAttribute : ObjectFieldDescriptorAttribute
-{
-    protected override void OnConfigure(IDescriptorContext context, IObjectFieldDescriptor descriptor, MemberInfo member)
-    {
-        descriptor.Extend().Definition.CustomSettings.Add(FetchStrategy.OnlyId);
+        descriptor.Field(a => a.Id).UseOnlyParentId();
     }
 }
