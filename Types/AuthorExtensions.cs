@@ -23,4 +23,7 @@ public static class AuthorExtensions
 
     [UseOnlyParentId]
     public static int IdDouble([Parent] Author author) => author.Id * 2;
+
+    //In an ideal world, but (very) hard to do it
+    //public static int IdDouble([ParentId] int authorId) => authorId * 2;
 }
