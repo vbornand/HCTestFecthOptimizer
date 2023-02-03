@@ -11,10 +11,10 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
 {
     private MethodInfo? _getObjectWithOnlyIdMethod;
     private ITypesOnlyParentIdService? _typesOnlyParentIdService;
-    public HashSet<string>? _fieldsAvailableWithoutFetch; //TODO: Find the best type for performance
+    public HashSet<string> _fieldsAvailableWithoutFetch = new HashSet<string>(); //TODO: Find the best type for performance
 
-    private string typeName;
-    private string fieldName;
+    private string? typeName;
+    private string? fieldName;
 
 
     public string With { get; }
@@ -39,7 +39,7 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
         {
             //Save the type name and field name, to get the field in the schema when it is completed to retrieve the GraphQL type returned
             //by the resolver.
-            typeName = c.ToString()!;
+            typeName = c.ToString()!; //Todo: Better way to get the type name?
             fieldName = d.Name;
         });
 
@@ -47,12 +47,15 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
 
         context.SchemaCompleted += (_, e) =>
         {
-            var t = e.Schema.GetType<IObjectType>(typeName);
-            if (t.Fields.TryGetField(fieldName, out var f))
+            if (!string.IsNullOrEmpty(typeName) && !string.IsNullOrEmpty(fieldName))
             {
-                var typeName = f.Type.NamedType();
-                _fieldsAvailableWithoutFetch = _typesOnlyParentIdService!.GetUseOnlyParentIdFields(typeName.Name).ToHashSet();
-                _fieldsAvailableWithoutFetch.Add("__typename");
+                var t = e.Schema.GetType<IObjectType>(typeName);
+                if (t.Fields.TryGetField(fieldName, out var f))
+                {
+                    var typeName = f.Type.NamedType();
+                    _fieldsAvailableWithoutFetch = _typesOnlyParentIdService!.GetUseOnlyParentIdFields(typeName.Name).ToHashSet();
+                    _fieldsAvailableWithoutFetch.Add("__typename");
+                }
             }
         };
 
@@ -71,13 +74,15 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
         //TODO: Find a way to avoid to use HotChocolate.Data.Projections.
         var fields = context.GetSelectedField().GetFields().Select(f => f.Field.Name);
 
-        if (_fieldsAvailableWithoutFetch == null || fields.Except(_fieldsAvailableWithoutFetch).Any())
+
+        foreach (var field in fields)
         {
-            return FetchStrategy.All;
+            if (!_fieldsAvailableWithoutFetch.Contains(field))
+            {
+                return FetchStrategy.All;
+            }
         }
-        else
-        {
-            return FetchStrategy.OnlyId;
-        }
+
+        return FetchStrategy.OnlyId;
     }
 }
