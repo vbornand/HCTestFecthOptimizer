@@ -37,7 +37,8 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
 
         descriptor.Extend().OnBeforeCompletion((c, d) =>
         {
-            //Save the type name and field name, to get the type in the schema when it is completed.
+            //Save the type name and field name, to get the field in the schema when it is completed to retrieve the GraphQL type returned
+            //by the resolver.
             typeName = c.ToString()!;
             fieldName = d.Name;
         });
@@ -67,6 +68,7 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
 
     private FetchStrategy GetFetchStrategy(IResolverContext context)
     {
+        //TODO: Find a way to avoid to use HotChocolate.Data.Projections.
         var fields = context.GetSelectedField().GetFields().Select(f => f.Field.Name);
 
         if (_fieldsAvailableWithoutFetch == null || fields.Except(_fieldsAvailableWithoutFetch).Any())
