@@ -11,6 +11,6 @@ public class AuthorType : ObjectType<Author>
         //Just to check if it works when the GraphQL type does not match with the class name.
         descriptor.Name("TheAuthor");
 
-        descriptor.Field(a => a.Id).UseOnlyParentId();
+        //descriptor.Field(a => a.Id).UseOnlyParentId();
     }
 }

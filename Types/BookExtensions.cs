@@ -6,8 +6,8 @@ namespace TestFecthOptimizer.Types;
 public static class BookExtensions
 {
     [BindMember(nameof(Book.AuthorId))]
-    [SkipResolverIfOnlyIdRequired(nameof(GetAuthorWithOnlyId))]
-    public static async Task<Author> GetAuthor([Parent] Book book,
+    [SkipResolverIfOnlyIdRequired]
+    public static async Task<Author> GetAuthor([Parent]Book book,
                                                IAuthorByIdDataLoader authorByIdDataLoader,
                                                CancellationToken cancellationToken)
     {
@@ -15,9 +15,9 @@ public static class BookExtensions
         return await authorByIdDataLoader.LoadAsync(book.AuthorId, cancellationToken);
     }
 
-    private static Author GetAuthorWithOnlyId(Book book)
+    private static int GetAuthorId(Book book)
     {
         Console.WriteLine("Author not fetched.");
-        return new Author(book.AuthorId, null);
+        return book.AuthorId;
     }
 }

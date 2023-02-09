@@ -5,6 +5,5 @@ namespace TestFecthOptimizer.Types;
 [ExtendObjectType(typeof(IBusinessObject))]
 public static class BusinessObjectExtensions
 {
-    [UseOnlyParentId]
-    public static DateTime Now([Parent] IBusinessObject _) => DateTime.Now;
+    public static DateTime Now([ParentId]object _) => DateTime.Now;
 }

@@ -3,26 +3,13 @@ using HotChocolate.Data.Projections.Context;
 using HotChocolate.Resolvers;
 using HotChocolate.Types.Descriptors;
 using TestFecthOptimizer.Services;
-using static System.Reflection.BindingFlags;
 
 namespace TestFecthOptimizer.Infrastructure;
 
 public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescriptorAttribute
 {
-    private MethodInfo? _getObjectWithOnlyIdMethod;
     private ITypesOnlyParentIdService? _typesOnlyParentIdService;
-    public HashSet<string> _fieldsAvailableWithoutFetch = new HashSet<string>(); //TODO: Find the best type for performance
-
-    private string? typeName;
-    private string? fieldName;
-
-
-    public string With { get; }
-
-    public SkipResolverIfOnlyIdRequiredAttribute(string with)
-    {
-        With = with;
-    }
+    private PropertyInfo? bindedProperty;
 
     protected override void OnConfigure(IDescriptorContext context, IObjectFieldDescriptor descriptor, MemberInfo member)
     {
@@ -30,50 +17,57 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
 
         descriptor.Extend().OnBeforeNaming((c, d) =>
         {
-            _getObjectWithOnlyIdMethod = member.DeclaringType?.GetMethod(
-                                      With,
-                                      Public | NonPublic | Static);
-        });
-
-        descriptor.Extend().OnBeforeCompletion((c, d) =>
-        {
-            //Save the type name and field name, to get the field in the schema when it is completed to retrieve the GraphQL type returned
-            //by the resolver.
-            typeName = c.ToString()!; //Todo: Better way to get the type name?
-            fieldName = d.Name;
-        });
-
-        //It is not possible to use the OnBeforeCompletion().DependsOn() because we don't know yet the result type name.
-
-        context.SchemaCompleted += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(typeName) && !string.IsNullOrEmpty(fieldName))
+            if (d.BindToField.HasValue &&
+                //TODO: Add support for Type = Field.
+                d.BindToField.Value.Type == HotChocolate.Types.Descriptors.Definitions.ObjectFieldBindingType.Property)
             {
-                var t = e.Schema.GetType<IObjectType>(typeName);
-                if (t.Fields.TryGetField(fieldName, out var f))
+                var propertyName = d.BindToField.Value.Name;
+                if (member is MethodBase mb)
                 {
-                    var typeName = f.Type.NamedType();
-                    _fieldsAvailableWithoutFetch = _typesOnlyParentIdService!.GetUseOnlyParentIdFields(typeName.Name).ToHashSet();
-                    _fieldsAvailableWithoutFetch.Add("__typename");
+                    var parentParameter = mb.GetParameters().FirstOrDefault(p => p.GetCustomAttribute<ParentAttribute>() != null);
+                    if (parentParameter != null)
+                    {
+                        bindedProperty = parentParameter.ParameterType.GetProperty(propertyName);
+                    }
+                }
+                if (bindedProperty == null)
+                {
+                    //TODO: Add details in the error
+                    c.ReportError(SchemaErrorBuilder.New().SetMessage("Unable to get the id provider").Build());
                 }
             }
-        };
+        });
 
         descriptor.Use(next => async context =>
         {
-            if (!context.IsResultModified && _getObjectWithOnlyIdMethod != null && GetFetchStrategy(context) == FetchStrategy.OnlyId)
+            var parent = context.Parent<object>();
+            if (parent != null)
             {
-                context.Result = _getObjectWithOnlyIdMethod.Invoke(null, new object[] { context.Parent<object>() });
+                var parentId = bindedProperty!.GetValue(parent);
+                if (parentId != null)
+                {
+                    context.SetScopedState("ParentId", parentId);
+                    if (!context.IsResultModified && GetFetchStrategy(context, _typesOnlyParentIdService) == FetchStrategy.OnlyId)
+                    {
+                        //It's better to call the other middlewares, but to avoid to execute
+                        //the resolver, we need to set the result with a fake value.
+                        context.Result = UnresolvedParent.Instance;
+                    }
+                }
             }
             await next(context);
         });
     }
 
-    private FetchStrategy GetFetchStrategy(IResolverContext context)
+    private FetchStrategy GetFetchStrategy(IResolverContext context, ITypesOnlyParentIdService typesOnlyParentIdService)
     {
-        //TODO: Find a way to avoid to use HotChocolate.Data.Projections.
-        var fields = context.GetSelectedField().GetFields().Select(f => f.Field.Name);
+        var selectedField = context.GetSelectedField();
+        var typeName = selectedField.Type.TypeName();
 
+        //TODO: Find a way to avoid to use HotChocolate.Data.Projections.
+        var fields = selectedField.GetFields().Select(f => f.Field.Name);
+
+        var _fieldsAvailableWithoutFetch = typesOnlyParentIdService.GetUseOnlyParentIdFields(typeName);
 
         foreach (var field in fields)
         {
@@ -84,5 +78,10 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
         }
 
         return FetchStrategy.OnlyId;
+    }
+
+    public class UnresolvedParent
+    {
+        public static UnresolvedParent Instance { get; set; } = new UnresolvedParent();
     }
 }

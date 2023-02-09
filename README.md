@@ -39,22 +39,25 @@ This query executes the `IAuthorByIdDataLoader` because the field `nameUpperCase
 }
 ```
 
-It is possible to define which resolvers use only the ID of the parent with the attribute `UseOnlyParentIdAttribute` or with `descriptor.Field(a => a.Id).UseOnlyParentId();`
+The type interceptor `OnlyParentIdTypeInterceptor` scans all the types, and adds in a list all the fields having a resolvers with a parameter with a `[ParentId]` attribute.
 
-For the resolvers providing the parents, a second method generating only the object with ID is required:
+Example of field resolver using the ParentId: (The value is available even if the parent has been fully loaded.)
 ```
-[SkipResolverIfOnlyIdRequired(nameof(GetAuthorWithOnlyId))]
+public static int IdDouble([ParentId]int parentId) => parentId * 2;
+```
+
+For the resolvers providing the parents, the attribute `SkipResolverIfOnlyIdRequired` can be added to avoid calling it if no 
+fields requires the entire Parent object.
+This attribute works only if the attribute `BindMember` is used in the same time.
+
+```
+[BindMember(nameof(Book.AuthorId))]
+[SkipResolverIfOnlyIdRequired]
 public static async Task<Author> GetAuthor([Parent] Book book,
                                             IAuthorByIdDataLoader authorByIdDataLoader,
                                             CancellationToken cancellationToken)
 {
     return await authorByIdDataLoader.LoadAsync(book.AuthorId, cancellationToken);
-}
-
-//must be static
-private static Author GetAuthorWithOnlyId(Book book)
-{
-    return new Author(book.AuthorId, null);
 }
 ```
 
