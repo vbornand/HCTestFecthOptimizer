@@ -47,7 +47,7 @@ public static int IdDouble([ParentId]int parentId) => parentId * 2;
 ```
 
 For the resolvers providing the parents, the attribute `SkipResolverIfOnlyIdRequired` can be added to avoid calling it if no 
-fields requires the entire Parent object.
+fields requires the entire Parent object is requested.
 This attribute works only if the attribute `BindMember` is used in the same time.
 
 ```cs
