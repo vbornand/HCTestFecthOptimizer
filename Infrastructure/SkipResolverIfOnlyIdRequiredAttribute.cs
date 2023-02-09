@@ -80,7 +80,7 @@ public sealed class SkipResolverIfOnlyIdRequiredAttribute : ObjectFieldDescripto
         return FetchStrategy.OnlyId;
     }
 
-    public class UnresolvedParent
+    internal class UnresolvedParent
     {
         public static UnresolvedParent Instance { get; set; } = new UnresolvedParent();
     }
